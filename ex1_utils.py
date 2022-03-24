@@ -35,6 +35,7 @@ def imReadAndConvert(filename: str, representation: int) -> np.ndarray:
     :param representation: GRAY_SCALE or RGB
     :return: The image object
     """
+
     if representation == 1:
         img = cv2.cvtColor(cv2.imread(filename), cv2.COLOR_BGR2GRAY)
         normalizedArr = preprocessing.normalize(img)
