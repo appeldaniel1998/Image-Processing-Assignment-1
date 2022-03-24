@@ -47,8 +47,8 @@ def imReadAndConvert(filename: str, representation: int) -> np.ndarray:
         maximum_value, minimum_value = img.max(), img.min()
 
         # Normalize all the pixel values of the img to be from 0 to 1
-        for pixel in range(shape):
-            normalizedArr[pixel, ...] = (img[pixel, ...] - float(minimum_value)) / float(maximum_value - minimum_value)
+        for val in range(shape):
+            normalizedArr[val, ...] = (img[val, ...] - float(minimum_value)) / float(maximum_value - minimum_value)
 
     return normalizedArr
 
@@ -70,14 +70,18 @@ def imDisplay(filename: str, representation: int):
             plt.show()
 
 
-
 def transformRGB2YIQ(imgRGB: np.ndarray) -> np.ndarray:
     """
     Converts an RGB image to YIQ color space
     :param imgRGB: An Image in RGB
     :return: A YIQ in image color space
     """
-    pass
+    matrix = [[0.299, 0.587, 0.114], [0.596, -0.275, -0.321], [0.212, -0.523, 0.311]]
+    yiqMat = np.zeros_like(imgRGB.astype(float))
+    shape = imgRGB.shape[0]
+    for val in range(shape):
+        yiqMat[val, ...] = np.matmul(imgRGB[val, ...], matrix)
+    return yiqMat
 
 
 def transformYIQ2RGB(imgYIQ: np.ndarray) -> np.ndarray:
@@ -86,7 +90,12 @@ def transformYIQ2RGB(imgYIQ: np.ndarray) -> np.ndarray:
     :param imgYIQ: An Image in YIQ
     :return: A RGB in image color space
     """
-    pass
+    matrix = [[1, 0.956, 0.619], [1, -0.272, -0.647], [1, -1.106, 1.703]]
+    rgbMat = np.zeros_like(imgYIQ.astype(float))
+    shape = rgbMat.shape[0]
+    for val in range(shape):
+        rgbMat[val, ...] = np.matmul(imgYIQ[val, ...], matrix)
+    return rgbMat
 
 
 def hsitogramEqualize(imgOrig: np.ndarray) -> (np.ndarray, np.ndarray, np.ndarray):
