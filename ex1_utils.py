@@ -9,12 +9,11 @@
         ........::..:::::..:::......::
 """
 from typing import List
-import cv2
-from sklearn import preprocessing
-from matplotlib import pyplot as plt
-from collections import Counter
 
+import cv2
 import numpy as np
+from matplotlib import pyplot as plt
+from sklearn import preprocessing
 
 LOAD_GRAY_SCALE = 1
 LOAD_RGB = 2
@@ -105,13 +104,11 @@ def hsitogramEqualize(imgOrig: np.ndarray) -> (np.ndarray, np.ndarray, np.ndarra
     """
     pass
 
+
 def histogramFromImg(img) -> np.ndarray:
     histogram = np.zeros((256, img.ndim))
     if img.ndim == 2:
-        number_list = np.array([1, 1, 2, 3, 4, 4, 1])
-        unique, counts = np.unique(number_list, return_counts=True)
-
-
+        unique, counts = np.unique(round(img*255), return_counts=True)
 
 
 def quantizeImage(imOrig: np.ndarray, nQuant: int, nIter: int) -> (List[np.ndarray], List[float]):
