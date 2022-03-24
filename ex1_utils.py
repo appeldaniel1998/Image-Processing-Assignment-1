@@ -9,18 +9,23 @@
         ........::..:::::..:::......::
 """
 from typing import List
+import cv2
+from sklearn import preprocessing
+from matplotlib import pyplot as plt
+from sklearn.preprocessing import minmax_scale
 
 import numpy as np
+
 LOAD_GRAY_SCALE = 1
 LOAD_RGB = 2
 
 
 def myID() -> np.int:
     """
-    Return my ID (not the friend's ID I copied from)
+    Return my ID (not the friend's ID I copied from) - I would never:)
     :return: int
     """
-    return 123456789
+    return 207386699
 
 
 def imReadAndConvert(filename: str, representation: int) -> np.ndarray:
@@ -30,7 +35,22 @@ def imReadAndConvert(filename: str, representation: int) -> np.ndarray:
     :param representation: GRAY_SCALE or RGB
     :return: The image object
     """
-    pass
+    if representation == 1:
+        img = cv2.cvtColor(cv2.imread(filename), cv2.COLOR_BGR2GRAY)
+        normalizedArr = preprocessing.normalize(img)
+    else:
+
+        img = cv2.imread("beach.jpg")
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        normalizedArr = np.zeros_like(img.astype(float))
+        shape = img.shape[0]
+        maximum_value, minimum_value = img.max(), img.min()
+
+        # Normalize all the pixel values of the img to be from 0 to 1
+        for pixel in range(shape):
+            normalizedArr[pixel, ...] = (img[pixel, ...] - float(minimum_value)) / float(maximum_value - minimum_value)
+
+    return normalizedArr
 
 
 def imDisplay(filename: str, representation: int):
@@ -40,7 +60,15 @@ def imDisplay(filename: str, representation: int):
     :param representation: GRAY_SCALE or RGB
     :return: None
     """
-    pass
+    img_array = imReadAndConvert(filename, representation)
+    if representation == 1:
+        plt.imshow(img_array, cmap='gray')
+        plt.show()
+    else:
+        if representation == 2:
+            plt.imshow(img_array)
+            plt.show()
+
 
 
 def transformRGB2YIQ(imgRGB: np.ndarray) -> np.ndarray:
