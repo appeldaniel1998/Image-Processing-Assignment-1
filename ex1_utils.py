@@ -12,7 +12,7 @@ from typing import List
 import cv2
 from sklearn import preprocessing
 from matplotlib import pyplot as plt
-from sklearn.preprocessing import minmax_scale
+from collections import Counter
 
 import numpy as np
 
@@ -39,8 +39,7 @@ def imReadAndConvert(filename: str, representation: int) -> np.ndarray:
         img = cv2.cvtColor(cv2.imread(filename), cv2.COLOR_BGR2GRAY)
         normalizedArr = preprocessing.normalize(img)
     else:
-
-        img = cv2.imread("beach.jpg")
+        img = cv2.imread(filename)
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         normalizedArr = np.zeros_like(img.astype(float))
         shape = img.shape[0]
@@ -105,6 +104,14 @@ def hsitogramEqualize(imgOrig: np.ndarray) -> (np.ndarray, np.ndarray, np.ndarra
         :ret
     """
     pass
+
+def histogramFromImg(img) -> np.ndarray:
+    histogram = np.zeros((256, img.ndim))
+    if img.ndim == 2:
+        number_list = np.array([1, 1, 2, 3, 4, 4, 1])
+        unique, counts = np.unique(number_list, return_counts=True)
+
+
 
 
 def quantizeImage(imOrig: np.ndarray, nQuant: int, nIter: int) -> (List[np.ndarray], List[float]):
