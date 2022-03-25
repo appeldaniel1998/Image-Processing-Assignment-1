@@ -8,12 +8,13 @@
          ########: ##:::. ##::'######:
         ........::..:::::..:::......::
 """
+import math
 from typing import List
 
 import cv2
 import numpy as np
 from matplotlib import pyplot as plt
-from sklearn import preprocessing
+from sklearn.preprocessing import MinMaxScaler
 
 LOAD_GRAY_SCALE = 1
 LOAD_RGB = 2
@@ -37,10 +38,17 @@ def imReadAndConvert(filename: str, representation: int) -> np.ndarray:
 
     if representation == 1:
         img = cv2.cvtColor(cv2.imread(filename), cv2.COLOR_BGR2GRAY)
-        normalizedArr = preprocessing.normalize(img)
     else:
         img = cv2.imread(filename)
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    return normalize(img, representation)
+
+
+def normalize(img: np.ndarray, representation: int) -> np.ndarray:
+    if representation == 1:
+        scaler = MinMaxScaler(feature_range=(0, 1))
+        normalizedArr = scaler.fit_transform(img)
+    else:
         normalizedArr = np.zeros_like(img.astype(float))
         shape = img.shape[0]
         maximum_value, minimum_value = img.max(), img.min()
@@ -103,13 +111,56 @@ def hsitogramEqualize(imgOrig: np.ndarray) -> (np.ndarray, np.ndarray, np.ndarra
         :param imgOrig: Original Histogram
         :ret
     """
-    pass
+    cumHist, grayOrRGB = cumulativeHistogram(imgOrig)
+    lut = np.zeros(cumHist.shape)
+    shape = imgOrig.shape
+    for i in range(len(cumHist)):  # Filling LUT
+        lut[i] = math.ceil((cumHist[i] / (shape[0] * shape[1])) * 255)
+    imgEqualized = np.zeros(imgOrig.shape)
+    if grayOrRGB == "gray":  # Image is grayscale
+        grayOrRGB = 1
+        for i in range(len(imgEqualized)):  # Iterating over rows of image
+            for j in range(len(imgEqualized[0])):  # Iterating over columns (elements of rows)
+                imgEqualized[i][j] = lut[int(np.round(imgOrig[i][j] * 255))]
+    else:  # Image is RGB
+        grayOrRGB = 2
+        imgEqualized = transformRGB2YIQ(imgOrig)
+        scaler = MinMaxScaler(feature_range=(0, 255))
+        imgEqualized[..., 0] = scaler.fit_transform(imgEqualized[..., 0])
+        for i in range(len(imgEqualized)):  # Iterating over rows of image
+            for j in range(len(imgEqualized[0])):  # Iterating over columns (elements of rows)
+                imgEqualized[i][j][0] = lut[int(np.round(imgEqualized[i][j][0]))]
+        imgEqualized[..., 0] = scaler.inverse_transform(imgEqualized[..., 0])
+        imgEqualized = transformYIQ2RGB(imgEqualized)
+
+    histOrigin = histogramFromImg(imgOrig)[0]
+    equalizedNormalizedImg = normalize(imgEqualized, grayOrRGB)
+    histEq = histogramFromImg(equalizedNormalizedImg)[0]
+    return imgEqualized, histOrigin, histEq
 
 
-def histogramFromImg(img) -> np.ndarray:
-    histogram = np.zeros((256, img.ndim))
-    if img.ndim == 2:
-        unique, counts = np.unique(round(img*255), return_counts=True)
+def histogramFromImg(img) -> (np.ndarray, str):
+    ret = np.zeros(256)
+    if img.ndim == 2:  # Grayscale image
+        unique, counts = np.unique(np.round(img * 255), return_counts=True)
+        for i in range(len(counts)):
+            ret[int(unique[i])] = counts[i]
+        return ret, "gray"
+    else:  # RGB image
+        img = transformRGB2YIQ(img)[..., 0]
+        scaler = MinMaxScaler(feature_range=(0, 255))
+        scaledImg = scaler.fit_transform(img)
+        unique, counts = np.unique(np.round(scaledImg), return_counts=True)
+        for i in range(len(counts)):
+            ret[int(unique[i])] = counts[i]
+        return ret, "rgb"
+
+
+def cumulativeHistogram(img) -> (np.ndarray, str):
+    """Given an input of an image (as numpy array), calculates and returns the normalized cumulative histogram as numpy array"""
+    hist, grayOrRGB = histogramFromImg(img)
+    cumHist = np.cumsum(hist)
+    return cumHist, grayOrRGB
 
 
 def quantizeImage(imOrig: np.ndarray, nQuant: int, nIter: int) -> (List[np.ndarray], List[float]):
