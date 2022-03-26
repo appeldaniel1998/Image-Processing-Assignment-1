@@ -177,8 +177,84 @@ def quantizeImage(imOrig: np.ndarray, nQuant: int, nIter: int) -> (List[np.ndarr
         :param nIter: Number of optimization loops
         :return: (List[qImage_i],List[error_i])
     """
-    boundaries = np.array(nQuant)
-    optimalPoints = np.array(nQuant)
+    sections = initialSections(nQuant, imOrig)
+    optimalPoints = initializePoints(sections)
 
-    for i in range(nIter):
-        hist = histogramFromImg(imOrig)
+    for i in range(1, nIter):
+        hist, imgType = histogramFromImg(imOrig)
+        optimalPoints = optimalPointsInSections(hist, sections)
+        sections = optimalSectionsGivenPixels(optimalPoints)
+        newImg = histogramToImg(imOrig, imgType, sections, optimalPoints, hist)
+
+
+def initialSections(nQuant: int, imOrig: np.ndarray) -> np.ndarray:
+    """
+    Initialize the sections to values such that there are approximately the same number of pixels in each section
+    :param nQuant: number of dividing lines on the histogram
+    :param imOrig: Original image as numpy array
+    :return: the sections initialized to the correct values (currently correct)
+    """
+    hist = histogramFromImg(imOrig)[0]
+    sections = np.zeros(nQuant + 1)
+
+    # Constants
+    sections[0] = 0
+    sections[-1] = 255
+
+    approxNumOfPixelsInSections = (imOrig.shape[0] * imOrig.shape[1]) / (nQuant + 1)
+    index = 0
+    for i in range(1, len(sections) - 1):
+        tempSum = 0
+        while tempSum < approxNumOfPixelsInSections:
+            tempSum += hist[index]
+            index += 1
+        sections[i] = index - 1
+    return sections
+
+
+def initializePoints(sections: np.ndarray) -> np.ndarray:
+    optimalPoints = np.zeros(len(sections) - 1)
+    for i in range(1, len(sections)):
+        optimalPoints[i - 1] = int(np.round((sections[i] + sections[i - 1]) / 2))
+    return optimalPoints
+
+
+def optimalPointsInSections(histogram: np.ndarray, sections: np.ndarray) -> np.ndarray:
+    optimalPoints = np.zeros(len(sections) - 1)
+    for sectionInd in range(1, len(sections)):
+        # Numerator + Denominator calculation
+        numeratorIntegral = 0
+        denominatorIntegral = 0
+        for i in range(int(sections[sectionInd - 1]), int(sections[sectionInd])):
+            numeratorIntegral += histogram[i] * i
+            denominatorIntegral += histogram[i]
+
+        optimalPoints[sectionInd - 1] = np.round(numeratorIntegral / denominatorIntegral)
+    return optimalPoints
+
+
+def optimalSectionsGivenPixels(optimalPoints: np.ndarray) -> np.ndarray:
+    sections = np.zeros(len(optimalPoints) + 1)
+
+    # Constants
+    sections[0] = 0
+    sections[-1] = 255
+
+    for i in range(1, len(sections)-1):
+        sections[i] = (optimalPoints[i-1] + optimalPoints[i]) / 2
+
+    return sections
+
+
+def histogramToImg(imOrig: np.ndarray, imgType: str, sections: np.ndarray, optimalPoints: np.ndarray, hist: np.ndarray) -> np.ndarray:
+    if imgType == "gray":
+
+
+
+
+
+
+
+
+
+
