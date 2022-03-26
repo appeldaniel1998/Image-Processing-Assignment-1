@@ -45,18 +45,8 @@ def imReadAndConvert(filename: str, representation: int) -> np.ndarray:
 
 
 def normalize(img: np.ndarray, representation: int) -> np.ndarray:
-    if representation == 1:
-        scaler = MinMaxScaler(feature_range=(0, 1))
-        normalizedArr = scaler.fit_transform(img)
-    else:
-        normalizedArr = np.zeros_like(img.astype(float))
-        shape = img.shape[0]
-        maximum_value, minimum_value = img.max(), img.min()
-
-        # Normalize all the pixel values of the img to be from 0 to 1
-        for val in range(shape):
-            normalizedArr[val, ...] = (img[val, ...] - float(minimum_value)) / float(maximum_value - minimum_value)
-
+    maximum_value, minimum_value = img.max(), img.min()
+    normalizedArr = (img - float(minimum_value)) / float(maximum_value - minimum_value)
     return normalizedArr
 
 
@@ -68,13 +58,21 @@ def imDisplay(filename: str, representation: int):
     :return: None
     """
     img_array = imReadAndConvert(filename, representation)
+    showImg(img_array, representation)
+
+
+def showImg(img_array: np.ndarray, representation: int):
     if representation == 1:
         plt.imshow(img_array, cmap='gray')
         plt.show()
+        # cv2.imshow("", img_array)
+        # cv2.waitKey(0)
     else:
         if representation == 2:
             plt.imshow(img_array)
             plt.show()
+            # cv2.imshow("", img_array)
+            # cv2.waitKey(0)
 
 
 def transformRGB2YIQ(imgRGB: np.ndarray) -> np.ndarray:
@@ -111,6 +109,7 @@ def hsitogramEqualize(imgOrig: np.ndarray) -> (np.ndarray, np.ndarray, np.ndarra
         :param imgOrig: Original Histogram
         :ret
     """
+    showImg(imgOrig, imgOrig.ndim - 1)
     cumHist, grayOrRGB = cumulativeHistogram(imgOrig)
     lut = np.zeros(cumHist.shape)
     shape = imgOrig.shape
@@ -125,21 +124,28 @@ def hsitogramEqualize(imgOrig: np.ndarray) -> (np.ndarray, np.ndarray, np.ndarra
     else:  # Image is RGB
         grayOrRGB = 2
         imgEqualized = transformRGB2YIQ(imgOrig)
-        scaler = MinMaxScaler(feature_range=(0, 255))
-        imgEqualized[..., 0] = scaler.fit_transform(imgEqualized[..., 0])
+        imgEqualized[..., 0] = (imgEqualized[..., 0] - np.min(imgEqualized[..., 0])) / (np.max(imgEqualized[..., 0]) - np.min(imgEqualized[..., 0])) * 255
         for i in range(len(imgEqualized)):  # Iterating over rows of image
             for j in range(len(imgEqualized[0])):  # Iterating over columns (elements of rows)
                 imgEqualized[i][j][0] = lut[int(np.round(imgEqualized[i][j][0]))]
-        imgEqualized[..., 0] = scaler.inverse_transform(imgEqualized[..., 0])
+        # imgEqualized[..., 0] = scaler.inverse_transform(imgEqualized[..., 0])
+        imgEqualized[..., 0] = imgEqualized[..., 0] / 255
         imgEqualized = transformYIQ2RGB(imgEqualized)
 
     histOrigin = histogramFromImg(imgOrig)[0]
     equalizedNormalizedImg = normalize(imgEqualized, grayOrRGB)
     histEq = histogramFromImg(equalizedNormalizedImg)[0]
+
+    showImg(imgEqualized, imgOrig.ndim - 1)
+
     return imgEqualized, histOrigin, histEq
 
 
 def histogramFromImg(img) -> (np.ndarray, str):
+    """
+    :param img: normalized image (grayscale of RGB)
+    :return: image histogram (regular histogram if grayscale, Y channel of YIQ if RGB image) and whether the image is RGB or grayscale
+    """
     ret = np.zeros(256)
     if img.ndim == 2:  # Grayscale image
         unique, counts = np.unique(np.round(img * 255), return_counts=True)
@@ -171,4 +177,8 @@ def quantizeImage(imOrig: np.ndarray, nQuant: int, nIter: int) -> (List[np.ndarr
         :param nIter: Number of optimization loops
         :return: (List[qImage_i],List[error_i])
     """
-    pass
+    boundaries = np.array(nQuant)
+    optimalPoints = np.array(nQuant)
+
+    for i in range(nIter):
+        hist = histogramFromImg(imOrig)
