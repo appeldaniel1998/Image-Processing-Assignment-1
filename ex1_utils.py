@@ -41,11 +41,11 @@ def imReadAndConvert(filename: str, representation: int) -> np.ndarray:
     else:
         img = cv2.imread(filename)
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-    return normalize(img, representation)
+    return normalize(img)
 
 
-def normalize(img: np.ndarray, representation: int) -> np.ndarray:
-    maximum_value, minimum_value = img.max(), img.min()
+def normalize(img: np.ndarray) -> np.ndarray:
+    maximum_value, minimum_value = np.max(img), np.min(img)
     normalizedArr = (img - float(minimum_value)) / float(maximum_value - minimum_value)
     return normalizedArr
 
@@ -100,7 +100,7 @@ def transformYIQ2RGB(imgYIQ: np.ndarray) -> np.ndarray:
     shape = rgbMat.shape[0]
     for val in range(shape):
         rgbMat[val, ...] = np.matmul(imgYIQ[val, ...], matrix)
-    return rgbMat
+    return np.round(rgbMat, 10)
 
 
 def hsitogramEqualize(imgOrig: np.ndarray) -> (np.ndarray, np.ndarray, np.ndarray):
@@ -117,23 +117,20 @@ def hsitogramEqualize(imgOrig: np.ndarray) -> (np.ndarray, np.ndarray, np.ndarra
         lut[i] = math.ceil((cumHist[i] / (shape[0] * shape[1])) * 255)
     imgEqualized = np.zeros(imgOrig.shape)
     if grayOrRGB == "gray":  # Image is grayscale
-        grayOrRGB = 1
         for i in range(len(imgEqualized)):  # Iterating over rows of image
             for j in range(len(imgEqualized[0])):  # Iterating over columns (elements of rows)
                 imgEqualized[i][j] = lut[int(np.round(imgOrig[i][j] * 255))]
     else:  # Image is RGB
-        grayOrRGB = 2
         imgEqualized = transformRGB2YIQ(imgOrig)
         imgEqualized[..., 0] = (imgEqualized[..., 0] - np.min(imgEqualized[..., 0])) / (np.max(imgEqualized[..., 0]) - np.min(imgEqualized[..., 0])) * 255
         for i in range(len(imgEqualized)):  # Iterating over rows of image
             for j in range(len(imgEqualized[0])):  # Iterating over columns (elements of rows)
                 imgEqualized[i][j][0] = lut[int(np.round(imgEqualized[i][j][0]))]
-        # imgEqualized[..., 0] = scaler.inverse_transform(imgEqualized[..., 0])
         imgEqualized[..., 0] = imgEqualized[..., 0] / 255
         imgEqualized = transformYIQ2RGB(imgEqualized)
 
     histOrigin = histogramFromImg(imgOrig)[0]
-    equalizedNormalizedImg = normalize(imgEqualized, grayOrRGB)
+    equalizedNormalizedImg = normalize(imgEqualized)
     histEq = histogramFromImg(equalizedNormalizedImg)[0]
 
     showImg(imgEqualized, imgOrig.ndim - 1)
@@ -143,7 +140,7 @@ def hsitogramEqualize(imgOrig: np.ndarray) -> (np.ndarray, np.ndarray, np.ndarra
 
 def histogramFromImg(img) -> (np.ndarray, str):
     """
-    :param img: normalized image (grayscale of RGB)
+    :param img: normalized image (grayscale or RGB)
     :return: image histogram (regular histogram if grayscale, Y channel of YIQ if RGB image) and whether the image is RGB or grayscale
     """
     ret = np.zeros(256)
@@ -179,12 +176,17 @@ def quantizeImage(imOrig: np.ndarray, nQuant: int, nIter: int) -> (List[np.ndarr
     """
     sections = initialSections(nQuant, imOrig)
     optimalPoints = initializePoints(sections)
+    retImages = [imOrig]
+    retErrors = []
 
     for i in range(1, nIter):
-        hist, imgType = histogramFromImg(imOrig)
+        hist, imgType = histogramFromImg(retImages[-1])
         optimalPoints = optimalPointsInSections(hist, sections)
         sections = optimalSectionsGivenPixels(optimalPoints)
-        newImg = histogramToImg(imOrig, imgType, sections, optimalPoints, hist)
+        retImages.append(histogramToImg(retImages[-1], imgType, sections, optimalPoints, hist))
+        retErrors.append(WMSEErrorCalc(hist, sections, optimalPoints))
+    plt.plot(retErrors)
+    return retImages, retErrors
 
 
 def initialSections(nQuant: int, imOrig: np.ndarray) -> np.ndarray:
@@ -240,14 +242,40 @@ def optimalSectionsGivenPixels(optimalPoints: np.ndarray) -> np.ndarray:
     sections[0] = 0
     sections[-1] = 255
 
-    for i in range(1, len(sections)-1):
-        sections[i] = (optimalPoints[i-1] + optimalPoints[i]) / 2
+    for i in range(1, len(sections) - 1):
+        sections[i] = (optimalPoints[i - 1] + optimalPoints[i]) / 2
 
     return sections
 
 
 def histogramToImg(imOrig: np.ndarray, imgType: str, sections: np.ndarray, optimalPoints: np.ndarray, hist: np.ndarray) -> np.ndarray:
+    imOrig = imOrig.copy()
     if imgType == "gray":
+        imOrig *= 255
+        for i in range(len(imOrig)):
+            for j in range(len(imOrig[0])):
+                for sectionId in range(1, len(sections)):
+                    if sections[sectionId - 1] <= imOrig[i][j] <= sections[sectionId]:
+                        imOrig[i][j] = optimalPoints[sectionId - 1]
+                        break
+        return imOrig / 255
+    else:  # RGB Image
+        yiqImg = transformRGB2YIQ(imOrig)
+        yiqImg[..., 0] = (yiqImg[..., 0] - np.min(yiqImg[..., 0])) / (np.max(yiqImg[..., 0]) - np.min(yiqImg[..., 0])) * 255
+        YChannel = yiqImg[..., 0]
+        for secInd in range(1, len(sections)):
+            YChannel[sections[secInd - 1] <= YChannel <= sections[secInd]] = optimalPoints[secInd - 1]
+        yiqImg[..., 0] = YChannel
+        yiqImg[..., 0] /= 255
+        return transformYIQ2RGB(yiqImg)
+
+
+def WMSEErrorCalc(hist: np.ndarray, sections: np.ndarray, optimalPoints: np.ndarray) -> float:
+    errorSum = 0
+    for i in range(1, len(sections)):
+        for j in range(int(sections[i - 1]), int(sections[i])):
+            errorSum += hist[j] * ((j - optimalPoints[i - 1]) ** 2)
+    return errorSum
 
 
 
@@ -255,6 +283,26 @@ def histogramToImg(imOrig: np.ndarray, imgType: str, sections: np.ndarray, optim
 
 
 
+# imOrig = transformRGB2YIQ(imOrig)
+# # imOrig[..., 0] = np.round(imOrig[..., 0] * 255)
+# scaler = MinMaxScaler(feature_range=(0, 255))
+# imOrig[..., 0] = scaler.fit_transform(imOrig[..., 0])
+# imOrig = np.round(imOrig[..., 0])
+# for i in range(len(imOrig)):
+#     for j in range(len(imOrig[0])):
+#         for sectionId in range(1, len(sections)):
+#             if sections[sectionId - 1] <= imOrig[i][j][0] <= sections[sectionId]:
+#                 imOrig[i][j][0] = optimalPoints[sectionId - 1]
+#                 break
+# imOrig[..., 0] /= 255
+# imOrig = transformYIQ2RGB(imOrig)
 
-
-
+# imgEqualized = transformRGB2YIQ(imOrig)
+# imgEqualized[..., 0] = (imgEqualized[..., 0] - np.min(imgEqualized[..., 0])) / (np.max(imgEqualized[..., 0]) - np.min(imgEqualized[..., 0])) * 255
+# for i in range(len(imgEqualized)):  # Iterating over rows of image
+#     for j in range(len(imgEqualized[0])):  # Iterating over columns (elements of rows)
+#         for sectionId in range(1, len(sections)):
+#             if sections[sectionId - 1] <= imgEqualized[i][j][0] <= sections[sectionId]:
+#                 imgEqualized[i][j][0] = optimalPoints[sectionId - 1]
+# imgEqualized[..., 0] = imgEqualized[..., 0] / 255
+# imgEqualized = transformYIQ2RGB(imgEqualized)
