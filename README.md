@@ -15,7 +15,7 @@ The files are as follows:
 - ex1_utils - the file where most major functions requested by the assignment have been implemented
 - gamma.py - the file where the gamma correction function was implemented
 
-The functions implemented in the asssignment (not the ones received as part of testing) are as follows:
+The functions implemented in the assignment (not the ones received as part of testing) are as follows:
 - myID() - defines the ID number of the student handing in the assignment (me)
 - imReadAndConvert() - Reads an image, and returns the image converted as requested (in grayscale or RGB)
 - normalize() - normalizing the received array to the range [0-1]
