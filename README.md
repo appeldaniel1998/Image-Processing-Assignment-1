@@ -26,7 +26,7 @@ The functions implemented in the asssignment (not the ones received as part of t
 - hsitogramEqualize() - Equalizes the histogram of an image
 - histogramFromImg() - Calculating and returning the histogram of the image
 - cumulativeHistogram() - Calculating and returning the cumulative histogram of the image
-- quantizeImage() - Quantized an image in to **nQuant** colors
+- quantizeImage() - Quantized an image in to nQuant colors
 - initialSections() - Initialize the sections to values such that there are approximately the same number of pixels in each section
 - optimalPointsInSections() - Choosing optimal points with the given sections
 - optimalSectionsGivenPixels() - Choosing optimal sections with the given points
